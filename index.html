@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getto Phone Previewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@30 a0;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0c;
+            color: #e2e8f0; 
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Device Container Styles */
+        .device-wrapper {
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            transform-origin: center center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Generic Smartphone Frame */
+        .phone-frame {
+            background: #1a1a1e;
+            border: 8px solid #333338;
+            border-radius: 48px;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7), 0 30px 60px -30px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+            transition: width 0.5s, height 0.5s, border-radius 0.5s;
+        }
+
+        /* Specific Device Characteristics */
+        .iphone-frame { border-radius: 54px; border-width: 12px; border-color: #2c2c2e; }
+        .samsung-frame { border-radius: 20px; border-width: 8px; border-color: #3a3a3a; }
+        .fold-frame { border-radius: 12px; border-width: 10px; border-color: #111; }
+
+        .screen-container {
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Dynamic Notch / Island */
+        .dynamic-island {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 110px;
+            height: 30px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 10;
+            transition: all 0.3s;
+        }
+
+        /* Side Controls Overlay */
+        .device-controls {
+            position: absolute;
+            left: -80px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.15);
+            transform: scale(1.05);
+        }
+
+        /* Primary Color Updated to #25bcb4 */
+        .active-device {
+            border-color: #25bcb4 !important;
+            background: rgba(37, 188, 180, 0.1) !important;
+        }
+
+        /* Side Panel scroll custom */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        /* Rotate Animation */
+        .rotated {
+            transform: rotate(-90deg);
+        }
+
+        .placeholder-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="h-16 flex items-center justify-between px-6 glass z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-[#25bcb4] rounded-lg flex items-center justify-center">
+                <i class="fas fa-mobile-screen-button text-white"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight">Getto <span class="text-[#25bcb4]">Phone Previewer</span></h1>
+        </div>
+
+        <div class="flex-1 max-w-2xl px-8">
+            <div class="relative group">
+                <input type="text" id="urlInput" placeholder="Enter website URL (e.g. apple.com)" 
+                       class="w-full bg-white/5 border border-white/10 rounded-full py-2 px-10 focus:outline-none focus:border-[#25bcb4]/50 transition-all text-sm">
+                <i class="fas fa-globe absolute left-4 top-1/2 -translate-y-1/2 text-white/30"></i>
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    <button onclick="loadUrl()" class="bg-[#25bcb4] hover:opacity-90 text-xs font-semibold px-4 py-1.5 rounded-full transition-colors">
+                        GO
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button onclick="toggleOrientation()" class="text-white/60 hover:text-white transition-colors" title="Rotate">
+                <i class="fas fa-rotate"></i>
+            </button>
+            <div class="h-6 w-px bg-white/10 mx-2"></div>
+            <div class="flex items-center gap-2 text-xs text-white/40">
+                <span id="resLabel">393 x 852</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Sidebar: Device List -->
+        <aside class="w-72 glass h-full p-4 overflow-y-auto custom-scroll flex flex-col gap-6">
+            
+            <div>
+                <h3 class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4">iOS Devices</h3>
+                <div class="flex flex-col gap-2">
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="iphone15promax" onclick="selectDevice('iphone15promax')">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-apple text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">iPhone 15 Pro Max</p>
+                                <p class="text-[10px] text-white/40">430 × 932 px</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="iphone15" onclick="selectDevice('iphone15')">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-apple text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">iPhone 15</p>
+                                <p class="text-[10px] text-white/40">393 × 852 px</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4">Android Devices</h3>
+                <div class="flex flex-col gap-2">
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="s24ultra" onclick="selectDevice('s24ultra')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-robot text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">Galaxy S24 Ultra</p>
+                                <p class="text-[10px] text-white/40">384 × 824 px</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="pixel8pro" onclick="selectDevice('pixel8pro')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-robot text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">Pixel 8 Pro</p>
+                                <p class="text-[10px] text-white/40">448 × 998 px</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4">Specialty</h3>
+                <div class="flex flex-col gap-2">
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="zfold5" onclick="selectDevice('zfold5')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-tablet-screen-button text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">Galaxy Z Fold 5</p>
+                                <p class="text-[10px] text-white/40">768 × 915 px (Main)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="device-item flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer border border-transparent transition-all" data-id="note20" onclick="selectDevice('note20')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-pen-nib text-lg"></i>
+                            <div>
+                                <p class="text-sm font-medium">Galaxy Note 20 Ultra</p>
+                                <p class="text-[10px] text-white/40">412 × 915 px</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Display Area -->
+        <section class="flex-1 flex items-center justify-center bg-[#0e0e11] overflow-hidden p-10 relative">
+            
+            <!-- Zoom Controls -->
+            <div class="absolute bottom-8 right-8 flex gap-2 glass p-2 rounded-2xl">
+                <button onclick="adjustZoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg"><i class="fas fa-minus text-xs"></i></button>
+                <span id="zoomLabel" class="text-xs font-mono w-12 text-center flex items-center justify-center">100%</span>
+                <button onclick="adjustZoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg"><i class="fas fa-plus text-xs"></i></button>
+            </div>
+
+            <div class="device-wrapper" id="deviceWrapper">
+                
+                <!-- Side Device Frame Buttons -->
+                <div class="device-controls">
+                    <div class="control-btn" onclick="toggleOrientation()"><i class="fas fa-mobile-screen"></i></div>
+                    <div class="control-btn" onclick="takeScreenshot()"><i class="fas fa-camera"></i></div>
+                    <div class="control-btn" onclick="refreshFrame()"><i class="fas fa-sync"></i></div>
+                </div>
+
+                <div id="mainFrame" class="phone-frame iphone-frame" style="width: 430px; height: 932px;">
+                    <div id="notch" class="dynamic-island"></div>
+                    <div class="screen-container">
+                        <iframe id="browserFrame" src="about:blank"></iframe>
+                        <div id="placeholder" class="placeholder-message">
+                            <i class="fas fa-wand-magic-sparkles text-4xl mb-4 text-white/10"></i>
+                            <h2 class="text-lg font-semibold text-white/30">Enter a URL to begin</h2>
+                            <p class="text-sm text-white/10">Simulate real device experiences instantly.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        const devices = {
+            iphone15promax: { width: 430, height: 932, type: 'iphone', label: '430 × 932' },
+            iphone15: { width: 393, height: 852, type: 'iphone', label: '393 × 852' },
+            s24ultra: { width: 384, height: 824, type: 'samsung', label: '384 × 824' },
+            pixel8pro: { width: 448, height: 998, type: 'samsung', label: '448 × 998' },
+            zfold5: { width: 768, height: 915, type: 'fold', label: '768 × 915' },
+            note20: { width: 412, height: 915, type: 'samsung', label: '412 × 915' }
+        };
+
+        let currentDeviceId = 'iphone15promax';
+        let isLandscape = false;
+        let zoomScale = 0.7; // Start zoomed out to fit screen
+
+        function init() {
+            updateZoomDisplay();
+            selectDevice('iphone15promax');
+            
+            document.getElementById('urlInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadUrl();
+            });
+
+            // Set default URL
+            document.getElementById('urlInput').value = 'www.gettoindia.com';
+            loadUrl();
+        }
+
+        function loadUrl() {
+            let url = document.getElementById('urlInput').value.trim();
+            if (!url) return;
+            
+            if (!url.startsWith('http')) {
+                url = 'https://' + url;
+            }
+            
+            const frame = document.getElementById('browserFrame');
+            const placeholder = document.getElementById('placeholder');
+            
+            placeholder.style.display = 'none';
+            frame.src = url;
+        }
+
+        function selectDevice(id) {
+            currentDeviceId = id;
+            const device = devices[id];
+            const frame = document.getElementById('mainFrame');
+            const notch = document.getElementById('notch');
+            const resLabel = document.getElementById('resLabel');
+
+            isLandscape = false;
+            document.getElementById('deviceWrapper').classList.remove('rotated');
+
+            frame.className = `phone-frame ${device.type}-frame`;
+            
+            if (device.type === 'iphone') {
+                notch.style.display = 'block';
+                notch.style.width = '110px';
+                notch.style.height = '30px';
+                notch.style.borderRadius = '20px';
+            } else if (device.type === 'fold') {
+                notch.style.display = 'none';
+            } else {
+                notch.style.display = 'block';
+                notch.style.width = '12px';
+                notch.style.height = '12px';
+                notch.style.borderRadius = '50%';
+            }
+
+            frame.style.width = device.width + 'px';
+            frame.style.height = device.height + 'px';
+            resLabel.innerText = device.label;
+
+            document.querySelectorAll('.device-item').forEach(el => {
+                el.classList.remove('active-device');
+                if (el.getAttribute('data-id') === id) {
+                    el.classList.add('active-device');
+                }
+            });
+        }
+
+        function toggleOrientation() {
+            isLandscape = !isLandscape;
+            const wrapper = document.getElementById('deviceWrapper');
+            const rotation = isLandscape ? -90 : 0;
+            wrapper.style.transform = `scale(${zoomScale}) rotate(${rotation}deg)`;
+        }
+
+        function adjustZoom(delta) {
+            zoomScale = Math.min(Math.max(0.2, zoomScale + delta), 2);
+            updateZoomDisplay();
+        }
+
+        function updateZoomDisplay() {
+            const wrapper = document.getElementById('deviceWrapper');
+            const label = document.getElementById('zoomLabel');
+            label.innerText = Math.round(zoomScale * 100) + '%';
+            
+            const rotation = isLandscape ? -90 : 0;
+            wrapper.style.transform = `scale(${zoomScale}) rotate(${rotation}deg)`;
+        }
+
+        function refreshFrame() {
+            const frame = document.getElementById('browserFrame');
+            frame.src = frame.src;
+        }
+
+        function takeScreenshot() {
+            const main = document.querySelector('section');
+            main.style.opacity = '0.5';
+            setTimeout(() => main.style.opacity = '1', 100);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
